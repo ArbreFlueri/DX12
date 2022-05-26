@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+1.프로젝트설정/Output
+1.프로젝트설정/Engine/x64
+1.프로젝트설정/Client/x64

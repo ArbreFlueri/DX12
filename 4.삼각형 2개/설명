@@ -1,0 +1,112 @@
+삼각형 2개 만들기
+삼각형을 2개 만들기 위해서는 Constant Buffer를 사용해야하는데 default.hlsli에서
+
+
+cbuffer TEST_B0 : register(b0)  
+{                               
+    float4 offset0;            
+};
+
+cbuffer TEST_B1 : register(b1)  
+{                               
+    float4 offset1;
+};
+
+이런 Constant Buffer 구조체를 만들어줌. C++이 아니라서 정확히는 무슨 뜻인지는 모르지만
+Constant Buffer을 사용하는데 b0이라는 레지스터를 사용할것이며, float 자료형 4개짜리 인자를 가지는 offset이라는 놈을 가질 것이다 라는 느낌인듯
+
+이런 애들을 Engine과 Game에서 사용하기 위해 Engine 프로젝트에 ConstantBuffer 클래스를 만들고 PushData라는 함수를 만들어 
+
+void ConstantBuffer::PushData(int32 rootParamIndex, void* buffer, uint32 size)
+{
+	assert(_currentIndex < _elementSize); 
+
+	::memcpy(&_mappedBuffer[_currentIndex * _elementSize], buffer, size); 
+	
+
+	D3D12_GPU_VIRTUAL_ADDRESS address = GetGpuVirtualAddress(_currentIndex);
+	CMD_LIST->SetGraphicsRootConstantBufferView(rootParamIndex, address); 
+	_currentIndex++;
+}
+
+assert의 조건을 만족하지않으면 crash내는 디버깅 코드고
+가장 중요한 memcpy로 해당 인덱스 위치에다가 요청해준 buffer를 복사 해주고 있다
+그리고 나중에 레지스터에게 복사한 놈의 주소를 참고해달라고 하는거임.
+
+이제 우리가 작업하고싶은 offset이라는 놈이 float가 4개짜리인 벡터같은놈이니까
+EnginePch에 Transform 이라는 이름으로 
+struct Transform
+{
+	Vec4 offset;
+};
+요로코롬 정의해줌 이를통해서 처음 계획한 float4개짜리 정보를 가진 offset이라는 놈으로 register에서 연산을 통해 삼각형 2개를 각각 생성, 이동시킬 준비를 함.
+
+
+Engine 클래스에서 스마트 포인터로 _cb에 ConstantBuffer를 저장할 변수를 선언해주고 Init()함수를 호출해서 함수내에 포함된 CreateBuffer()함수를 통해 버퍼를 만들어냈다.
+
+이 정보를 이제 Client에 가져가야하기 때문에 Game::Update()에서 Transform으로 변수 생성 
+
+{
+		Transform t; //vec4 offset
+		t.offset = Vec4(0.75f, 0.f, 0.f, 0.f); //첫번째 삼각형 : x좌표 0.75만큼 오른쪽으로이동하면서 Red 색상 높아짐 
+		mesh->SetTransform(t);
+
+		mesh->Render();
+	}
+
+	{
+		Transform t;
+		t.offset = Vec4(0.f, 0.75f, 0.f, 0.f);	//두번쨰 삼각형 : y좌표 0.75만큼 위로 이동, Green 색상 높아짐
+		mesh->SetTransform(t);
+
+		mesh->Render();
+	}
+  
+  이런식으로 구조체 Transform의 t는 Vec4 offset의 정보를 가지기 때문에 t.offset에서 정보를 입력해줌.
+  두번쨰도 똑같이 하고 저렇게 중괄호하는 이유는 같은 변수를 사용하기 위함임 딴거없음
+  
+  그러면 아 버퍼의 첫번째 인덱스에 있는 Vec4(0.75f, 0.f, 0.f, 0.f)라는 데이터와 다음 인덱스의  Vec4(0.f, 0.75f, 0.f, 0.f)라는 데이터가 저장되어있고
+  이는 아까전에 함수로 타고타고 들어가면 registerb0과 b1에 각각 들어갈 준비를 하는구나 하고 알 수 있음.
+  
+
+  Mesh 클래스에서
+  
+  void Mesh::Render()
+{
+	CMD_LIST->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	CMD_LIST->IASetVertexBuffers(0, 1, &_vertexBufferView); // Slot: (0~15)
+
+	//TODO
+	// 1) Buffer에다가 데이터 세팅
+	// 2) Buffer의 주소를 register에 전송
+	GEngine->GetCB()->PushData(0, &_transform, sizeof(_transform));
+	GEngine->GetCB()->PushData(1, &_transform, sizeof(_transform));
+	//CMD_LIST->SetGraphicsRootConstantBufferView(0,?);
+
+	CMD_LIST->DrawInstanced(_vertexCount, 1, 0, 0);
+}
+register 가 가리키는 버퍼에 저장된 값 (Vec4)을 각각 PushData함수로 처리를 해주는데
+아까 말대로 레지스터한테 요놈 주소를 참고해주세요 라고 했으니까 참조자로 인자를 넣어주는 모습
+결국 Vec4값을가져와서
+
+  
+  
+ default.hlsli 파일에
+ VS_OUT VS_Main(VS_IN input)
+{
+    VS_OUT output = (VS_OUT)0;
+
+    output.pos = float4(input.pos, 1.f);
+    output.pos += offset0;
+    output.color = input.color;
+    output.color += offset1;
+
+    return output;
+}
+하나씩 넣을꺼임
+첫번쨰 register에 연결된 버퍼의 첫인자 (0.75f, 0.f, 0.f, 0.f)를 position에도 color에도 다 더해주고 game.cpp에서 렌더링하고
+두번쨰도 렌더링 조짐.
+그래서 그림이 두개나온다..
+
+
+해보니까 그저 삼각형 두개 만드는건데 굉장히 복잡함을 알 수 있다.

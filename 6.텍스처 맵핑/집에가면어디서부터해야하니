@@ -1,0 +1,9 @@
+강의 28분부터보고
+지금 Texture 클래스 만들어서CreateTexture함수 완성했고 
+아맞다 그 lib, include 파일 만들어서 저장시켜줬고 
+fs 라고 file 명령어 사용하기 위해서 c++ 버전 17로 맞춰줬고
+
+CommandQueue 클래스에서 cmdlist를 받아오고 싶어서 rescmdlist라는 애 만들고  FlushResourceCommandQueue이 함수가 가져오게함
+그래서 texture 클래스에서 create 함수가 받아올수 있게함
+
+그리고 이제 rootSignature클래스 변경하려다가 집가는중

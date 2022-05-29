@@ -1,0 +1,71 @@
+강의 28분부터보고
+지금 Texture 클래스 만들어서CreateTexture함수 완성했고 
+아맞다 그 lib, include 파일 만들어서 저장시켜줬고 
+fs 라고 file 명령어 사용하기 위해서 c++ 버전 17로 맞춰줬고
+
+CommandQueue 클래스에서 cmdlist를 받아오고 싶어서 rescmdlist라는 애 만들고  FlushResourceCommandQueue이 함수가 가져오게함
+그래서 texture 클래스에서 create 함수가 받아올수 있게함
+
+그리고 이제 rootSignature클래스 변경하려다가 집가는중
+
+집와서 다해봄
+
+default.hlsli 에서 이제 쉐이더 값에 uv좌표값을 받고싶음 받아서 쉐이더 입힐려고
+이작업을 하기 위해 
+Texture2D tex_0 : register(t0);
+
+SamplerState sam_0 : register(s0); 
+얘들을 추가해줌. sampler라는 놈이 생겼는데 이거는 나중에 알게될거라더라 조금 맛보기로 알아보니까 이거 색깔을 입히는 정책이나 규칙을 정하는 부분인듯.
+
+struct VS_IN
+{
+    float3 pos : POSITION;
+    float4 color : COLOR;
+    float2 uv : TEXCOORD;
+};
+
+struct VS_OUT
+{
+    float4 pos : SV_Position;
+    float4 color : COLOR;
+    float2 uv : TEXCOORD;
+}; 
+쉐이더 부분에 uv들 만들어주고
+
+VS_OUT VS_Main(VS_IN input)
+{
+    VS_OUT output = (VS_OUT)0;
+
+    output.pos = float4(input.pos, 1.f);
+    output.color = input.color;
+    output.uv = input.uv;
+    
+
+    return output;
+}
+넘겨주는 부분도 예전에 뭐더라 막 옮기는 부분있었는데 갖다 버리고 딱 깔끔하게 했음
+
+float4 PS_Main(VS_OUT input) : SV_Target
+{
+    float4 color = tex_0.Sample(sam_0, input.uv);
+
+    return color;
+}
+
+이 처리를 해주기 위해 위에서 설정함. sam_0이라는 규칙을 가진 색깔을 입히는 작업을 전달받은 uv좌표값에다가 칠해주는 그런느낌인듯 나중에 공부하다 알게되면 그때 더 적어야지
+
+요놈들을 받아와서 처리할려고 일단 RootSignature에서 CBV부분이랑 거의 똑같이 SRV을 다 만들어준다 보니까 거의 CBV 설정하는 거랑 똑같은데
+쉐이더리소스뷰(SRV) 부분을 설정하는게 같은 뷰라서 그런듯?
+뭐 어쩃든 그러다보면 인자들에서 막힐 수 밖에 그래서 EnginePch클래스에서 enum값들을 설정해주고 그러면 전체 Count도 바뀌니까 enum 모두 수정해줘야함
+
+그렇게 설정다하고 game클래스에서 seTexture 부분을 딱 불러와주면 mesh에서 위치정보 찍고 쉐이더를 입혀서 딱 나오는 거지
+
+mesh->Init(vec, indexVec);
+
+	shader->Init(L"..\\Resources\\Shader\\default.hlsli");
+
+	texture->Init(L"..\\Resources\\Texture\\lala.jpg");
+
+	GEngine->GetCmdQueue()->WaitSync();
+  
+  Game::Init()함수 부분인데 지금은 이렇게 Resources 들을 하드코딩해뒀는데 게임 만들면 쉐이더 많아지니까 따로 관리하는 부분이 생길듯하다.
